@@ -1,0 +1,27 @@
+#!/bin/bash
+
+
+. "./20_Defaults.sh"
+
+
+##############################################################
+
+
+echo ""
+echo ""
+echo "GCP service (address) listing .."
+echo ""
+gcloud compute addresses describe   ${GKE_CLUSTER_NAME}-ip  --region ${GCP_REGION}
+
+
+echo ""
+echo ""
+echo "GKE service listing .."
+echo ""
+kubectl get service
+
+
+echo ""
+echo ""
+
+

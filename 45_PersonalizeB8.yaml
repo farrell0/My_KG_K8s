@@ -1,0 +1,79 @@
+#!/bin/bash
+
+
+. "./20_Defaults.sh"
+
+
+##############################################################
+
+
+
+echo ""
+echo ""
+echo "Step 1 of 1: Personalize the [values_override.yaml] for a given Katana"
+echo "   Graph Intelligence Plaform (KGIP) cluster."
+echo ""
+echo "   .  A [values_override.yaml] file will need to exist in a specific"
+echo "      sub-folder underneath, B1*."
+echo "      (Folder B1* is where we unpacked the KGIP helm charts earlier.)"
+echo ""
+echo "      This new YAML file supplies given/necessary values that configure"
+echo "      a new or existing KGIP cluster. Basically this new YAML file overrides"
+echo "      settings in the adjacent, [values.yaml] file."
+echo ""
+echo "   .  A lot of these values are repetitive, and/or values derived or"
+echo "      values that you never change."
+echo ""
+echo "   .  This program will,"
+echo ""
+echo "      ..  Read a specially formatted copy of values_override.yaml, and"
+echo "          perform variable substitution from variables set in, 20*, our"
+echo "          'defaults' variable/value file."
+echo "      ..  This specifically formatted copy of values.yaml is titled,"
+echo "          [B8_ValuesOverrideTemplate.yaml] and is located in this current"
+echo "          working directory. You may edit this file as you see fit."
+echo "      ..  The newly (substituted) copy of values_override.yaml is placed"
+echo "          back in the B1* folder."
+echo ""
+echo ""
+echo "**  You have 10 seconds to cancel before proceeding."
+echo ""
+echo ""
+sleep 10
+
+[ -f B8_ValuesOverrideTemplate.yaml ] && {
+
+   envsubst < B8_ValuesOverrideTemplate.yaml  > ./B1_KatanaHelmCharts/katana-chart/chart/katana/values_override.yaml
+
+} || {
+
+   echo ""
+   echo "ERROR:  B8_ValuesOverrideTemplate.yaml, file not found in current working directory."
+   echo ""
+   echo ""
+   exit 2
+}
+
+
+##############################################################
+
+
+echo ""
+echo ""
+echo "Next steps:"
+echo ""
+echo "   .  If need be, further personalize the,"
+echo "         ./B1_KatanaHelmCharts/katana-chart/chart/katana/values_override.yaml"
+echo "      file."
+echo ""
+echo "   .  Then run file 51*, where you actually call to deploy or modify you KGIP"
+echo "      cluster."
+
+
+echo ""
+echo ""
+
+
+
+
+

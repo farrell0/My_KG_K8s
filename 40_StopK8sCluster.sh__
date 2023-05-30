@@ -1,0 +1,38 @@
+#!/bin/bash
+
+
+. "./20_Defaults.sh"
+
+
+##############################################################
+
+
+#  First time, may get this prompt,
+#     API [dataproc.googleapis.com] not enabled on project [799544334556].
+#     Would you like to enable and retry (this will take a few minutes)? (y/N)?  y
+
+
+echo ""
+echo ""
+echo "Step 1 of 1: Calling 'gcloud' to stop K8s cluster .."
+echo ""
+echo "**  You have 10 seconds to cancel before proceeding."
+echo ""
+echo "    This is not a graceful shutdown of the KG cluster."
+echo ""
+sleep 10
+
+
+#  This command was failing
+#
+#  gcloud dataproc clusters stop ${GKE_CLUSTER_NAME} --region=${GCP_REGION}
+
+#  This command was not effective
+#
+#  gcloud container clusters resize ${GKE_CLUSTER_NAME} --zone=${GCP_REGION}  --num-nodes=0 --quiet
+
+
+echo ""
+echo ""
+
+
