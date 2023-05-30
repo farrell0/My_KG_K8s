@@ -1,0 +1,77 @@
+#
+#
+#  This (values_override.yaml) file contains environment variable
+#  references that need to be substituted before use.
+#
+#  More,
+#
+#     .  The environment variables, and their associated values are
+#        kept in file, 20*
+#     .  The program to do this substitution is file, 45*
+#        File 45 will output a version of this file where the environment
+#        variables are replaced with the proper/actual values.
+#
+
+
+global:
+  katana:
+    image:
+      dask:
+        scheduler: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+        worker: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+
+      katana:
+        controller: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+        launcher: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+        notebook: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+        worker: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+
+      tag: ${KATANA_VERSION_FIXED}
+
+jupyterhub:
+  proxy:
+    service:
+      type: LoadBalancer
+
+  #  Added b/c Hadi, https://katanagraph.atlassian.net/browse/KAT-12957
+  #
+  #  This was an 0.8 change-
+  #
+  singleuser:
+    serviceAccountName: ${KATANA_SERVICE_ACCOUNT_NAME}
+    cloudMetadata:
+      blockWithIptables: false
+
+  hub:
+    config:
+      Authenticator:
+        admin_users:
+          - kadmin1
+        allowed_users:
+          - ${MY_USERNAME}
+      DummyAuthenticator:
+        password: ${MY_PASSWORD}
+      JupyterHub:
+        authenticator_class: dummy
+
+
+katana:
+  config:
+    # dev:
+    #   kube:
+    #     max_workers: 10
+
+    logging:
+      min_log_level: debug
+
+    object_store:
+      bucket: ${GCS_BUCKET}
+
+  serviceAccount:
+    create: false
+    name: ${KATANA_SERVICE_ACCOUNT_NAME}
+
+
+
+
+

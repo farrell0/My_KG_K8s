@@ -1,0 +1,111 @@
+---
+global:
+  katana:
+    image:
+      dask:
+        scheduler: gcr.io/katana-cd8/katana-notebook
+        worker: gcr.io/katana-cd8/katana-notebook
+
+      katana:
+        controller: gcr.io/katana-cd8/katana-notebook
+        launcher: gcr.io/katana-cd8/katana-notebook
+        notebook: gcr.io/katana-cd8/katana-notebook
+        worker: gcr.io/katana-cd8/katana-notebook
+      #tag: 0.6.0_20221223T205237Z.1c8d0140a
+      tag: 0.7.0_20230124T103202Z.a5f83c2d6
+
+    workloadPlacement:
+      nodeSelector:
+        # Run this workload specifically on the given instance type
+        node.kubernetes.io/instance-type: n2-highmem-32
+        #node.kubernetes.io/instance-type: n2-standard-8
+        # Run this workload specifically in the given topology zone
+        topology.kubernetes.io/zone: us-central1-c
+
+
+      
+      podAntiAffinityPreset: "hard"
+      tolerations:
+        # Tolerate the no schedule placed on the graph worker nodes
+        - effect: "NoSchedule"
+          key: "node-role.kubernetes.io/katana-graph-worker"
+          operator: "Equal"
+          value: "true"
+
+etcd:
+  nodeSelector:
+    node.kubernetes.io/instance-type: e2-standard-8
+
+jupyterhub:
+
+  proxy:
+    chp:
+      nodeSelector:
+        node.kubernetes.io/instance-type: e2-standard-8
+    service:
+      type: LoadBalancer
+  
+  singleuser:
+    serviceAccountName: katana-sa
+    cloudMetadata:
+      blockWithIptables: false
+    nodeSelector:
+      node.kubernetes.io/instance-type: e2-standard-8
+
+
+  hub:
+    nodeSelector:
+      node.kubernetes.io/instance-type: e2-standard-8
+    config:
+      Authenticator:
+        admin_users:
+          - kadmin1
+        allowed_users:
+          - kuser1
+      DummyAuthenticator:
+        password: f4d3s2a1
+      JupyterHub:
+        authenticator_class: dummy
+
+katana:
+  config:
+    logging:
+      min_log_level: debug
+    object_store:
+      bucket: gs://katana-banco-davivienda/poc
+    dev:
+      kube:
+        max_workers: 20
+      scheduler:
+        idle_timeout: 1h
+
+  serviceAccount:
+    create: false
+    name: katana-sa
+  
+  #deployment:
+  #  nodeSelector:
+  #    node.kubernetes.io/instance-type: e2-standard-8
+
+  dask:
+    cluster:
+      spec:
+        scheduler:
+          spec:
+            nodeSelector:
+              node.kubernetes.io/instance-type: e2-standard-8
+
+  mpi:
+    spec:
+      mpiReplicaSpecs:
+        Launcher:
+          template:
+            spec:
+              nodeSelector:
+                node.kubernetes.io/instance-type: e2-standard-8    
+
+
+
+
+
+

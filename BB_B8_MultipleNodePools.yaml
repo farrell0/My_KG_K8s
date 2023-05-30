@@ -1,0 +1,195 @@
+#
+#
+#  This (values_override.yaml) file contains environment variable
+#  references that need to be substituted before use.
+#
+#  More,
+#
+#     .  The environment variables, and their associated values are
+#        kept in file, 20*
+#     .  The program to do this substitution is file, 45*
+#        File 45 will output a version of this file where the environment
+#        variables are replaced with the proper/actual values.
+#
+#     .  Good reference; see,
+#           https://github.com/KatanaGraph/argocd-apps-product/tree/main/continuous/gke
+#           https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
+#
+
+
+global:
+  katana:
+    image:
+      dask:
+        scheduler: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+        worker: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+
+      katana:
+        controller: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+        launcher: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+        notebook: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+        worker: gcr.io/${GCP_PROJECT_NAME}/katana-notebook
+
+      tag: ${KATANA_VERSION_FIXED}
+
+    #  This will set placement of the KG workers; nodepool wise
+    #
+    workloadPlacement:
+      nodeSelector:
+        node.kubernetes.io/instance-type: ${KATANA_WORKER_VM_TYPE}
+        topology.kubernetes.io/zone: ${GCP_ZONE}
+
+#       Produces error
+#
+#       spec:
+#         topologySpreadConstraints:
+#           - maxSkew: 1
+#             topologyKey: kubernetes.io/hostname
+#             whenUnsatisfiable: ScheduleAnyway
+#             labelSelector:
+#               matchLabels:
+#                 type: dummy
+
+#     Did not acheive desired result
+#
+#     spec:
+#       topologySpreadConstraints:
+#         - maxSkew: 1
+#           topologyKey: kubernetes.io/hostname
+#           whenUnsatisfiable: ScheduleAnyway
+#           labelSelector:
+#             matchLabels:
+#               type: dummy
+
+#   Did not achieve desired result
+#
+#   spec:
+#     topologySpreadConstraints:
+#       - maxSkew: 1
+#         topologyKey: kubernetes.io/hostname
+#         whenUnsatisfiable: ScheduleAnyway
+#         labelSelector:
+#           matchLabels:
+#             type: dummy
+
+# Did not achieve the desired result
+#
+# spec:
+#   topologySpreadConstraints:
+#     - maxSkew: 1
+#       topologyKey: kubernetes.io/hostname
+#       whenUnsatisfiable: ScheduleAnyway
+#       labelSelector:
+#         matchLabels:
+#           type: dummy
+
+
+#####################################
+#####################################
+
+
+etcd:
+  nodeSelector:
+    node.kubernetes.io/instance-type: ${KATANA_CONTROL_VM_TYPE}
+
+  #  Workload spread; this might be working
+  #
+  spec:
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+
+
+#####################################
+#####################################
+
+
+jupyterhub:
+
+  proxy:
+    chp:
+      nodeSelector:
+        node.kubernetes.io/instance-type: ${KATANA_CONTROL_VM_TYPE}
+    service:
+      type: LoadBalancer
+
+  hub:
+    nodeSelector:
+      node.kubernetes.io/instance-type: ${KATANA_CONTROL_VM_TYPE}
+    config:
+      Authenticator:
+        admin_users:
+          - kadmin1
+        allowed_users:
+          - ${MY_USERNAME}
+      DummyAuthenticator:
+        password: ${MY_PASSWORD}
+      JupyterHub:
+        authenticator_class: dummy
+
+  #  While called 'singleuser', this is for the Notebook proper
+  #
+  singleuser:
+    serviceAccountName: ${KATANA_SERVICE_ACCOUNT_NAME}
+    cloudMetadata:
+      blockWithIptables: false
+    #
+    #  Locates; notebook
+    #
+    nodeSelector:
+      node.kubernetes.io/instance-type: ${KATANA_WORKER_VM_TYPE}
+
+
+#####################################
+#####################################
+
+
+katana:
+
+  config:
+    # dev:
+    #   kube:
+    #     max_workers: 10
+    logging:
+      min_log_level: debug
+    object_store:
+      bucket: ${GCS_BUCKET}
+    dev:
+      kube:
+        max_workers: 20
+      scheduler:
+        idle_timeout: 1h
+
+  serviceAccount:
+    create: false
+    name: ${KATANA_SERVICE_ACCOUNT_NAME}
+
+
+  #  Dask administrative stuff-
+  #
+  #  dask-scheduler
+  #
+  dask:
+    cluster:
+      spec:
+        scheduler:
+          spec:
+            nodeSelector:
+              node.kubernetes.io/instance-type: ${KATANA_CONTROL_VM_TYPE}
+
+  #  MPI administrative stuff-
+  #
+  #  graph-worker-launcher
+  #
+  mpi:
+    spec:
+      mpiReplicaSpecs:
+        Launcher:
+          template:
+            spec:
+              nodeSelector:
+                node.kubernetes.io/instance-type: ${KATANA_CONTROL_VM_TYPE}
+
+
+

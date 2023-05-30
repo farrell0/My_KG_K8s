@@ -1,0 +1,363 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: argocd-notifications
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  ##### Application Specific ####  
+  name: denis-bench
+spec:
+  destination:
+    namespace: engineering-sandbox
+    name: in-cluster
+
+  project: team-engineering
+
+  source:
+    # The name of the helm chart
+    chart: katana
+
+    # The URL to the Helm chart repository
+    repoURL: https://artifactory.katanagraph.io/artifactory/helm
+
+    # The version of the Helm chart
+    ##### Application Specific ####
+    targetRevision: 0.5.0
+
+    helm:
+      # The following values are passed directly to Helm
+      # and are used to configure the above named chart.
+      values: |
+        etcd:
+          nodeSelector:
+            node-role.kubernetes.io: katana-control-plane
+
+          persistence:
+            size: 2Gi
+            storageClass: kg-ssd-xfs
+
+          readinessProbe:
+            initialDelaySeconds: 15
+
+          # TODO: Remove when chart goes to > 0.5.0
+          removeMemberOnContainerTermination: false
+
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 500m
+              memory: 256Mi
+
+          tolerations:
+            - effect: "NoSchedule"
+              key: "node-role.kubernetes.io/katana-control-plane"
+              operator: "Equal"
+              value: "true"
+
+        global:
+          katana:
+            image:
+              dask:
+                scheduler: kgcr.io/katana-enterprise/katana-notebook
+                worker: kgcr.io/katana-enterprise/katana-notebook
+
+              katana:
+                controller: kgcr.io/katana-enterprise/katana-notebook
+                launcher: kgcr.io/katana-enterprise/katana-notebook
+                notebook: kgcr.io/katana-enterprise/katana-notebook
+                worker: kgcr.io/katana-enterprise/katana-notebook
+
+              ##### Application Specific ####
+              #tag: 0.7.0_20230124T103202Z.a5f83c2d6
+              #tag: 0.8.0_20230222T010721Z.6ab30afb8
+              tag: 0.9.0_20230315T145956Z.dbe1b6788
+
+            # We specific the name of the image pull secret within Kubernetes
+            # that contains credentials to be used to access kgcr.io (Artifactory)
+            imagePullSecrets:
+              - name: docker-kgcr-io
+              
+            workloadPlacement:
+              nodeSelector:
+                ##### Application Specific ####
+                # Run this workload specifically on the given instance type
+                node.kubernetes.io/instance-type: n2-highmem-32
+                # Run this workload specifically in the given topology zone
+                topology.kubernetes.io/zone: us-central1-a
+              
+              podAntiAffinityPreset: "hard"
+
+              tolerations:
+                # Tolerate the no schedule placed on the graph worker nodes
+                - effect: "NoSchedule"
+                  key: "node-role.kubernetes.io/katana-graph-worker"
+                  operator: "Equal"
+                  value: "true"
+        
+        jupyterhub:
+          ##### Application Specific ####
+          fullnameOverride: denis-bench-jupyterhub
+
+          hub:
+            config:
+              ##### Application Specific ####
+              Authenticator:
+                admin_users:
+                  - denis-bench
+                allowed_users:
+                  - kuser1
+              DummyAuthenticator:
+                password: f4d3s2a1
+              JupyterHub:
+                authenticator_class: dummy
+            
+            # image:
+            #   name: kgcr.io/katana-enterprise/katana/hub
+            #   tag: "20230106T162528Z.7ead2b1"
+
+            resources:
+              limits:
+                cpu: 500m
+                memory: 1Gi
+              requests:
+                cpu: 500m
+                memory: 1Gi
+
+          proxy:
+            chp:
+              nodeSelector:
+                node-role.kubernetes.io: katana-control-plane
+              
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+                requests:
+                  cpu: 500m
+                  memory: 256Mi
+
+          # We specific the name of the image pull secret within Kubernetes
+          # that contains credentials to be used to access kgcr.io (Artifactory)
+          imagePullSecrets:
+            - name: docker-kgcr-io
+
+          ingress:
+            annotations:
+              # This annotation tells Kong to redirect http to https with a 302
+              konghq.com/https-redirect-status-code: '302'
+
+              # This annotation tells Kong to *only* support https protocol for this service.
+              konghq.com/protocols: https
+            
+            # This enables ingress to the Jupyter Hub. Set to false to disable the ingress.
+            enabled: true
+
+            # This specifies the list of hostnames that can be used to access the
+            # JupyterHub
+            hosts:
+              ##### Application Specific ####
+              - denis-bench.engineering.k9h.io
+            
+            # This identifies the ingress controller who should manage this ingress
+            # (Reference: https://github.com/KatanaGraph/flux-continuous/blob/main/clusters/gcp-cc-infra-us-central1-continuous/katana-system/kong/kong-values.yaml#L27)
+            ingressClassName: kong-katana-system
+            
+            # This is the TLS block configuration for mapping hosts to the certificate secrets used to terminate TLS
+            tls:
+              - hosts:
+                  ##### Application Specific ####
+                  - denis-bench.engineering.k9h.io
+                secretName: k9h-io-certificate
+
+          scheduling:
+            corePods:
+              tolerations:
+                - effect: "NoSchedule"
+                  key: "node-role.kubernetes.io/katana-control-plane"
+                  operator: "Equal"
+                  value: "true"
+
+          singleuser:
+            # TODO: Remove when chart goes to > 0.5.0
+            cloudMetadata:
+              blockWithIptables: false
+
+            cpu:
+              limit: 1
+              guarantee: 1
+
+            extraTolerations:
+              - effect: "NoSchedule"
+                key: "node-role.kubernetes.io/katana-control-plane"
+                operator: "Equal"
+                value: "true"
+
+            memory:
+              limit: 8G
+              guarantee: 8G
+
+            nodeSelector:
+              node-role.kubernetes.io: katana-control-plane
+
+            serviceAccountName: katana-standard
+            storage:
+              dynamic:
+                ##### Application Specific ####
+                pvcNameTemplate: denis-bench-{username}{servername}
+
+        katana:
+          config:
+            object_store:
+              ##### Application Specific ####
+              bucket: gs://continuous-n323-katana-deployment/engineering/denis-bench
+            dev:
+              kube:
+                ##### Application Specific ####
+                max_workers: 10
+              scheduler:
+                worker_registration_timeout: 10m
+
+          dask:
+            cluster:
+              spec:
+                scheduler:
+                  spec:
+                    nodeSelector:
+                      node-role.kubernetes.io: katana-control-plane
+                    
+                    tolerations:
+                      - effect: "NoSchedule"
+                        key: "node-role.kubernetes.io/katana-control-plane"
+                        operator: "Equal"
+                        value: "true"
+                worker:
+                  spec:
+                    # We have to pull the full container spec in due to: https://github.com/helm/helm/issues/9358
+                    # https://katanagraph.atlassian.net/browse/KAT-13051
+                    containers:
+                      - name: dask-worker
+
+                        args:
+                          - dask-worker
+                          - --no-dashboard
+                          - --name=$(DASK_WORKER_NAME)
+                          - --nworkers=16
+                          - --nthreads=1
+                          #- --no-nanny
+
+                        image: |-
+                          {{- include "dask.workerImageName" . -}}
+
+                        imagePullPolicy: "IfNotPresent"
+
+                        # -- [Reference][resources]
+                        #resources:
+                        #  limits:
+                        #    cpu: 30000m
+                        #    memory: 250G
+                        #  requests:
+                        #    cpu: 30000m
+                        #    memory: 250G
+
+          deployment:
+            nodeSelector: |
+              node-role.kubernetes.io: katana-control-plane
+            
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 500m
+                memory: 256Mi
+
+            tolerations: |
+              - effect: "NoSchedule"
+                key: "node-role.kubernetes.io/katana-control-plane"
+                operator: "Equal"
+                value: "true"
+
+          mpi:
+            spec:
+              mpiReplicaSpecs:
+                Launcher:
+                  template:
+                    spec:
+                      # We have to pull the full container spec in due to: https://github.com/helm/helm/issues/9358
+                      # https://katanagraph.atlassian.net/browse/KAT-13051
+                      containers:
+                        - name: launcher
+
+                          image: |-
+                            {{- include "mpi.launcherImageName" . -}}
+
+                          # -- [Reference][imagePullPolicy]
+                          imagePullPolicy: IfNotPresent
+
+                          # -- [Reference][resources]
+                          resources:
+                            limits:
+                              cpu: 500m
+                              memory: 256Mi
+                            requests:
+                              cpu: 500m
+                              memory: 256Mi
+
+                      nodeSelector:
+                        node-role.kubernetes.io: katana-control-plane
+
+                      tolerations:
+                        - effect: "NoSchedule"
+                          key: "node-role.kubernetes.io/katana-control-plane"
+                          operator: "Equal"
+                          value: "true"
+                
+                Worker:
+                  template:
+                    spec:
+                      # We have to pull the full container spec in due to: https://github.com/helm/helm/issues/9358
+                      # https://katanagraph.atlassian.net/browse/KAT-13051
+                      containers:
+                        ##### Application Specific ####
+                        - name: denis-bench-worker
+                          env:
+                          - name: "OMP_NUM_THREADS"
+                            value: "16"
+                          - name: "DGLBACKEND"
+                            value: "pytorch"
+                          image: |-
+                            {{- include "mpi.workerImageName" . -}}
+
+                          # -- [Reference][imagePullPolicy]
+                          imagePullPolicy: IfNotPresent
+
+                          # -- [Reference][resources]
+                          resources:
+                            limits:
+                              cpu: 31
+                              memory: 230G
+                            requests:
+                              cpu: 31
+                              memory: 230G
+                      
+          serviceAccount:
+            # We use a service account that already exists as it has been
+            # granted access to the standard katana-deployment storage bucket
+            create: false
+            name: katana-standard
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+      limit: 5
+
